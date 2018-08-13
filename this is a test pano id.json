@@ -1,0 +1,13 @@
+{
+    "Pano_Data": [
+        {
+            "GSV_Pano_ID": "this is a test pano id",
+            "label_x": "400",
+            "label_y": "500",
+            "x1": "350.0",
+            "y1": "450.0",
+            "x2": "450.0",
+            "y2": "550.0"
+        }
+    ]
+}
