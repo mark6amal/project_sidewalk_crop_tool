@@ -10,16 +10,18 @@ import logging
 
 from PIL import Image, ImageDraw
 import math
+import shutil
 
+import numpy as np
 
 path_to_label_list = "/Users/marcus/Desktop/labeldata.csv"
 
-gsv_pano_path = "/Volumes/Samsung_T5/scrapes_dump/"
+gsv_pano_path = "/Volumes/Extreme SSD/Sandbox Data/"
 
-crop_destination_path = "./"
+crop_destination_path = "/Users/marcus/Desktop/Training_Data_SVM/Crops_From_4096_2048/"
 
 
-
+pano_list = []
 label = {
     1 : "CurbRamp",
     2 : "NoCurbRamp",
@@ -30,10 +32,11 @@ label = {
     7 : "NoSidewalk"
 }
 
-crop_height_width = 500 #in Pixels(Default value is: )
+crop_height_width = 800 #in Pixels(Default value is: )
 
-pixel_Crop_Size = (crop_height_width/2)
+pixel_Crop_Size = int((crop_height_width/2)/3.25)
 
+binsize = 25
 
 def bulkExtractCrops(path_to_label_csv, gsv_pano_path, crop_destination_path):
     csv_file = open(path_to_label_csv)
@@ -41,72 +44,62 @@ def bulkExtractCrops(path_to_label_csv, gsv_pano_path, crop_destination_path):
 
     no_metadata_fail = 0
     no_pano_fail = 0
+    counter = 0
 
     for row in csv_f:
+        
 
+        if(len(pano_list) >= binsize * 4):
+            break
         pano_id = row[0]
-
-
         sv_image_x = float(row[1])
         sv_image_y = float(row[2])
         label_type = int(row[3])
         photographer_heading = float(row[4])
-        heading = float(row[5])
         label_id = int(row[7])
 
-        if not label_id == 56347:
-            continue
-
+        print("Status: [" + "#" * int(counter/4) + " " * (25 - int(counter/4)) + "]" , end = '\r')
         pano_yaw_deg = 180 - photographer_heading
         x, y = getLabelCoordinates(sv_image_x, sv_image_y, pano_yaw_deg)
 
-        print("Working on label " + str(label_id))
-        print("({},{})".format(x, y))
-        pano_xml_path = os.path.join(gsv_pano_path, pano_id[:2], pano_id + ".xml")
+        
         pano_img_path = os.path.join(gsv_pano_path, pano_id[:2], pano_id + ".jpg")
-        pano_depth_path = os.path.join(gsv_pano_path, pano_id[:2], pano_id + ".depth.txt")
 
-        # Checks that metadata exists for this image; if not skips it
-        try:
-            if (not (os.path.exists(pano_xml_path))):
-                print("Skipping label due to missing XML data")
-                logging.warn("Skipped label id " + str(label_id) + " due to missing XML.")
-                no_metadata_fail += 1
-                continue
-        except:
-            print("Skipping label due to invalid XML data")
-            logging.warn("Skipped label id " + str(label_id) + " due to invalid XML.")
-            no_metadata_fail += 1
-            continue
-
-        print("Pano_Id : " + pano_id)
-        print("Photographer heading is " + str(photographer_heading))
-        print("Viewer heading is " + str(heading))
-        print("Lable type is " + str(label_type))
-        print("Yaw : " + str(pano_yaw_deg))
-
-        # Extract the crop
+       
+        
         if os.path.exists(pano_img_path):
+            
+            if not pano_img_path in pano_list:
+                pano = Image.open(pano_img_path)
+                if pano.getbbox() == None :
+                    continue
+
+                counter += 1
+                shutil.copy2(pano_img_path, "/Users/marcus/Desktop/Training_Data_SVM/Pano_4096_2048/")
+                pano_list.append(pano_img_path)
+            
+
+            
             label_folder = os.path.join(crop_destination_path, label[label_type])
             if not os.path.isdir(label_folder):
                 os.makedirs(label_folder)
             destination_folder = os.path.join(label_folder, pano_id[:2])
             if not os.path.isdir(destination_folder):
                 os.makedirs(destination_folder)
-            crop_name = "{0}_{1}_{2}_{3}".format(pano_id, label[label_type], str(x), str(y))
+            crop_name = "{0}_._{1}_._{2}_._{3}_._".format(pano_id, label[label_type], str(x), str(y))
             crop_destination = os.path.join(crop_destination_path, label[label_type], pano_id[:2], crop_name + ".jpg")
             json_destination = os.path.join(crop_destination_path, label[label_type], pano_id[:2], crop_name + ".json")
             if not os.path.exists(crop_destination):
                 fixedCropSinglePano(pano_img_path, x, y, crop_destination, label_type)
                 createJsonFile(pano_id, x, y, row, json_destination)
-                print("Successfully extracted crop to " + crop_name + ".jpg")
+                #print("Successfully extracted crop to " + crop_name + ".jpg")
                 logging.info(crop_name + ".jpg" + " " + pano_id + " " + str(sv_image_x)
                              + " " + str(sv_image_y) + " " + str(pano_yaw_deg) + " " + str(label_id))
                 logging.info("---------------------------------------------------")
         else:
             no_pano_fail += 1
-            print("Panorama image not found.")
-            logging.warn("Skipped label id " + str(label_id) + " due to missing image.")
+            #print("Panorama image not found.")
+            #logging.warn("Skipped label id " + str(label_id) + " due to missing image.")
 
     print("Finished.")
     print(str(no_pano_fail) + " extractions failed because panorama image was not found.")
@@ -140,7 +133,7 @@ def createJsonFile(panoId, x, y, row, destination):
     })
     #Exports the json file to destination folder
     with open(destination, 'w') as outfile:
-        json.dump(data, outfile, indent = 4)
+        json.dump(data, outfile)
 
 
 def getLabelCoordinates(sv_image_x, sv_image_y, pano_yaw_deg):
@@ -150,24 +143,16 @@ def getLabelCoordinates(sv_image_x, sv_image_y, pano_yaw_deg):
 
     x_label = ((float(pano_yaw_deg) / 360) * pano_width + sv_image_x) % pano_width
     y_label = pano_height / 2 - sv_image_y
-    return x_label, y_label
+    return x_label/3.25 , y_label/3.25
 
-def fixedCropSinglePano(pano_img_path, x, y, crop_destination, label_id, tag = True):
+def fixedCropSinglePano(pano_img_path, x, y, crop_destination, label_id, tag = False):
     pano = Image.open(pano_img_path)
     tag = Image.open("./Tags/{0}.png".format(label[label_id]))
-    
-    
-
+    x = int(x)
+    y = int(y)
     
     croppedPano = pano.crop((x - pixel_Crop_Size, y - pixel_Crop_Size, x + pixel_Crop_Size, y + pixel_Crop_Size))
 
-
-
-
-    """
-    resize = int(pixel_Crop_Size / 3.25)
-    resizePano = croppedPano.resize((resize, resize))
-    """
     # Saves cropped Pano without tag
 
     croppedPano.save(crop_destination)

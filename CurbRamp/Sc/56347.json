@@ -1,0 +1,22 @@
+{
+    "Pano_Data": [
+        {
+            "GSV_Pano_ID": "ScGJzTYb8g286DUnrvqIPw",
+            "label_x": "12737.844921874985",
+            "label_y": "3749.0",
+            "x1": "12487.844921874985",
+            "y1": "3499.0",
+            "x2": "12987.844921874985",
+            "y2": "3999.0",
+            "sv_image_x": "12524",
+            "sv_image_y": "-421",
+            "label_type": "CurbRamp",
+            "label_type_id": "1",
+            "pano_yaw-deg": 5.783065795898011,
+            "photographer_heading": "174.216934204102",
+            "heading": "355.625",
+            "pitch": "-17.8125",
+            "label_id": "56347"
+        }
+    ]
+}
