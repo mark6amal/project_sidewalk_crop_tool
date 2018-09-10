@@ -15,10 +15,13 @@ import shutil
 import numpy as np
 
 path_to_label_list = "/Users/marcus/Desktop/labeldata.csv"
-
 gsv_pano_path = "/Volumes/Extreme SSD/Sandbox Data/"
+crop_destination_path = "/Users/marcus/Desktop/Training_Data_SVM_Control/"
+pano_height = 4096
+pano_width = 2048
 
-crop_destination_path = "/Users/marcus/Desktop/Training_Data_SVM/Crops_From_4096_2048/"
+crop_height_width = 800 #in Pixels(Default value is: )
+pixel_Crop_Size = int((crop_height_width/2)/3.25)
 
 
 pano_list = []
@@ -32,11 +35,7 @@ label = {
     7 : "NoSidewalk"
 }
 
-crop_height_width = 800 #in Pixels(Default value is: )
-
-pixel_Crop_Size = int((crop_height_width/2)/3.25)
-
-binsize = 25
+label_number = 1
 
 def bulkExtractCrops(path_to_label_csv, gsv_pano_path, crop_destination_path):
     csv_file = open(path_to_label_csv)
@@ -46,10 +45,11 @@ def bulkExtractCrops(path_to_label_csv, gsv_pano_path, crop_destination_path):
     no_pano_fail = 0
     counter = 0
 
+    label_counts = [0,0,0,0]
+    something = 0 
     for row in csv_f:
-        
-
-        if(len(pano_list) >= binsize * 4):
+        something += 1
+        if(counter >= 2000):
             break
         pano_id = row[0]
         sv_image_x = float(row[1])
@@ -58,27 +58,26 @@ def bulkExtractCrops(path_to_label_csv, gsv_pano_path, crop_destination_path):
         photographer_heading = float(row[4])
         label_id = int(row[7])
 
-        print("Status: [" + "#" * int(counter/4) + " " * (25 - int(counter/4)) + "]" , end = '\r')
+        print("Status: [" + "#" * int(counter/20) + " " * (100 - int(counter/20)) + "]" + "  {}/2000    ".format(counter) + str(something), end = '\r')
         pano_yaw_deg = 180 - photographer_heading
         x, y = getLabelCoordinates(sv_image_x, sv_image_y, pano_yaw_deg)
-
-        
         pano_img_path = os.path.join(gsv_pano_path, pano_id[:2], pano_id + ".jpg")
-
-       
         
         if os.path.exists(pano_img_path):
-            
             if not pano_img_path in pano_list:
                 pano = Image.open(pano_img_path)
-                if pano.getbbox() == None :
+                if pano.getbbox() == None or label_type > 4:
                     continue
+                count_index = label_type - 1
 
-                counter += 1
-                shutil.copy2(pano_img_path, "/Users/marcus/Desktop/Training_Data_SVM/Pano_4096_2048/")
-                pano_list.append(pano_img_path)
-            
-
+                if label_counts[count_index] < 501 :
+                    counter += 1
+                else:
+                    continue
+                
+                
+                #shutil.copy2(pano_img_path, "/Users/marcus/Desktop/Training_Data_SVM/Pano_4096_2048/")
+                #pano_list.append(pano_img_path)
             
             label_folder = os.path.join(crop_destination_path, label[label_type])
             if not os.path.isdir(label_folder):
@@ -104,9 +103,6 @@ def bulkExtractCrops(path_to_label_csv, gsv_pano_path, crop_destination_path):
     print("Finished.")
     print(str(no_pano_fail) + " extractions failed because panorama image was not found.")
     print(str(no_metadata_fail) + " extractions failed because metadata was not found.")
-
-
-
 
 def createJsonFile(panoId, x, y, row, destination):
     #Adds the data into a dictionary
@@ -149,15 +145,10 @@ def fixedCropSinglePano(pano_img_path, x, y, crop_destination, label_id, tag = F
     pano = Image.open(pano_img_path)
     tag = Image.open("./Tags/{0}.png".format(label[label_id]))
     x = int(x)
-    y = int(y)
-    
+    y = int(y)  
     croppedPano = pano.crop((x - pixel_Crop_Size, y - pixel_Crop_Size, x + pixel_Crop_Size, y + pixel_Crop_Size))
-
     # Saves cropped Pano without tag
-
     croppedPano.save(crop_destination)
-
-    
     # Saves cropped Pano with tag
     if tag:
         croppedPano.paste(tag, (int(croppedPano.height/2 - tag.height/2), int(croppedPano.width/2 - tag.width/2)))
